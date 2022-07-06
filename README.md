@@ -11,7 +11,7 @@ node server.js
     - returns "Hello World"
 - GET /load
     - query params:
-        - scale -> time(ms) for which CPU will be blocked (default=random between 0ms to 10ms)
+        - scale -> time in milliseconds  for which CPU will be blocked for some time (default= 0ms to 10ms)
     - returns "OK" after execution
 
 ## Notes:
