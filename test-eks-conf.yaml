@@ -1,0 +1,113 @@
+---
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: my-eks-1099 # name of cluster
+  region: us-east-1
+  version: "1.20" # kubernetes version
+vpc: # Refer: https://github.com/weaveworks/eksctl/blob/main/examples/04-existing-vpc.yaml
+  id: "vpc-09fb7355bba279f78"
+  subnets:
+    public:
+      my-public-1099-a:
+        id: "subnet-0247ae3c9dea39081"
+        az: "us-east-1a"
+      my-public-1099-b:
+        id: "subnet-09091ccbd0db4b265"
+        az: "us-east-1b"
+    private:
+      my-private-1099-a:
+        id: "subnet-0c10415e983e1fbe9"
+        az: "us-east-1a"
+      my-private-1099-b:
+        id: "subnet-055d19cacd741fc47"
+        az: "us-east-1b"
+  clusterEndpoints:
+    publicAccess:  true
+    privateAccess: true
+  nat:
+    gateway: Disable # disable since already created
+
+iam: # Refer: https://eksctl.io/usage/iamserviceaccounts/
+  withOIDC: true
+  serviceAccounts: # pre-including some common iamserviceaccounts
+  - metadata:
+      name: aws-lb-controller
+      namespace: kube-system
+    wellKnownPolicies:
+      awsLoadBalancerController: true
+  - metadata:
+      name: ebs-csi-controller-test
+      namespace: kube-system
+    wellKnownPolicies:
+      ebsCSIController: true
+  - metadata:
+      name: efs-csi-controller-test
+      namespace: kube-system
+    wellKnownPolicies:
+      efsCSIController: true
+  - metadata:
+      name: external-dns
+      namespace: kube-system
+    wellKnownPolicies:
+      externalDNS: true
+  - metadata:
+      name: cert-manager
+      namespace: cert-manager
+    wellKnownPolicies:
+      certManager: true
+  - metadata:
+      name: cluster-autoscaler
+      namespace: kube-system
+      labels: {aws-usage: "cluster-ops"}
+    wellKnownPolicies:
+      autoScaler: true
+
+nodeGroups: # Refer: https://github.com/weaveworks/eksctl/blob/main/examples/05-advanced-nodegroups.yaml
+  - name: pvt-1099-a1
+    labels: { role: workers }
+    tags:
+      k8s.io/cluster-autoscaler/enabled: "true" # tag is needed for cluster autoscaler. Refer: https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/cloudprovider/aws/README.md#auto-discovery-setup
+      k8s.io/cluster-autoscaler/my-eks-1099: "shared" # cluster name tag is optional in latest versions of EKS
+    instancesDistribution:
+      instanceTypes:
+        - t2.medium
+    desiredCapacity: 1
+    minSize: 1
+    maxSize: 3
+    privateNetworking: true # include only in private subnet
+    subnets:
+      - my-private-1099-a1 
+  - name: pub-1099-a1
+    labels: { role: workers }
+    tags:
+      k8s.io/cluster-autoscaler/enabled: "true"
+      k8s.io/cluster-autoscaler/my-eks-1099: "shared"
+    instancesDistribution:
+      instanceTypes:
+        - t2.medium
+    desiredCapacity: 1
+    minSize: 1
+    maxSize: 1
+    subnets:
+      - my-public-1099-a1
+  - name: pri-taint
+      labels: { role: workers }
+      taints:
+        feaster: "true:NoSchedule"
+      tags:
+        k8s.io/cluster-autoscaler/enabled: "true"
+        k8s.io/cluster-autoscaler/my-eks-1099: "shared"
+      instancesDistribution:
+        instanceTypes:
+          - t2.medium
+      desiredCapacity: 1
+      minSize: 0
+      maxSize: 5
+      subnets:
+        - my-public-1099-b1
+
+
+
+  --eksctl create cluster -f test-eks-conf.yaml
